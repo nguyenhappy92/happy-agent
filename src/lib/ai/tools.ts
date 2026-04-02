@@ -1,5 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { searchKnowledgeBase } from "@/lib/knowledge/search";
+import {
+  parsePRUrl,
+  fetchPRContext,
+  isGitHubConfigured,
+} from "@/lib/github/client";
 
 type Tool = Anthropic.Messages.Tool;
 
@@ -18,6 +23,22 @@ export const tools: Tool[] = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "review_pull_request",
+    description:
+      "Fetch a GitHub Pull Request and review its code changes. Accepts a GitHub PR URL (e.g. https://github.com/owner/repo/pull/123) or shorthand (owner/repo#123). Use when the user asks you to review a PR, check code, or look at a pull request.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        pr_url: {
+          type: "string",
+          description:
+            "GitHub PR URL (https://github.com/owner/repo/pull/123) or shorthand (owner/repo#123)",
+        },
+      },
+      required: ["pr_url"],
     },
   },
   {
@@ -61,8 +82,26 @@ export async function handleToolCall(
         .join("\n\n---\n\n");
     }
 
+    case "review_pull_request": {
+      const prUrl = input.pr_url as string;
+      const parsed = parsePRUrl(prUrl);
+      if (!parsed) {
+        return "Could not parse the PR URL. Please use a full GitHub URL (https://github.com/owner/repo/pull/123) or shorthand (owner/repo#123).";
+      }
+
+      if (!isGitHubConfigured()) {
+        return "GitHub integration is not configured. Set up a GitHub App (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID) or a personal access token (GITHUB_TOKEN).";
+      }
+
+      try {
+        return await fetchPRContext(parsed.owner, parsed.repo, parsed.number);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return `Failed to fetch PR: ${msg}`;
+      }
+    }
+
     case "escalate_to_human": {
-      // In production, integrate with Jira / Freshdesk / PagerDuty here
       const { reason, priority, summary } = input as {
         reason: string;
         priority: string;
