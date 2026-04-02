@@ -18,7 +18,14 @@ export default function Home() {
           <h3>AI Agent</h3>
           <p>
             Powered by Claude claude-sonnet-4-20250514 with tool use for knowledge
-            base search and ticket escalation.
+            base search, PR review, and ticket escalation.
+          </p>
+        </div>
+        <div className="card">
+          <h3>PR Review</h3>
+          <p>
+            Share a GitHub PR link and get an AI code review with issues grouped
+            by severity and actionable suggestions.
           </p>
         </div>
         <div className="card">
@@ -72,6 +79,7 @@ export default function Home() {
               Add <code>SLACK_BOT_TOKEN</code>,{" "}
               <code>SLACK_SIGNING_SECRET</code>,{" "}
               <code>ANTHROPIC_API_KEY</code>, and optionally{" "}
+              <code>GITHUB_TOKEN</code>,{" "}
               <code>UPSTASH_REDIS_REST_URL</code> /{" "}
               <code>UPSTASH_REDIS_REST_TOKEN</code> in your Vercel project
               settings.

@@ -14,6 +14,7 @@ Webhook handler ─── Rate limiter (Upstash Redis)
 Claude AI Agent
   ├── System prompt (persona + rules)
   ├── Tool: search knowledge base
+  ├── Tool: review GitHub pull request
   └── Tool: escalate to human
   │
   ▼
@@ -26,7 +27,8 @@ Storage
 ## Features
 
 - **Slack integration** — responds to @mentions and direct messages
-- **Claude AI** — claude-sonnet-4-20250514 with tool use for RAG and escalation
+- **Claude AI** — claude-sonnet-4-20250514 with tool use for RAG, PR review, and escalation
+- **PR review** — share a GitHub PR link and get a structured code review with severity-grouped findings
 - **Knowledge base** — built-in articles for FAQ, billing, API, security, troubleshooting
 - **Conversation memory** — thread-aware history persisted in Redis
 - **Rate limiting** — sliding window limiter to protect API costs
@@ -56,6 +58,10 @@ Fill in the values:
 | `SLACK_BOT_TOKEN` | Yes | Bot token from your Slack app (`xoxb-...`) |
 | `SLACK_SIGNING_SECRET` | Yes | Signing secret from Basic Information page |
 | `ANTHROPIC_API_KEY` | Yes | Your Anthropic API key |
+| `GITHUB_APP_ID` | No | GitHub App ID (enables PR review) |
+| `GITHUB_APP_PRIVATE_KEY` | No | GitHub App private key (PEM, `\n`-escaped) |
+| `GITHUB_APP_INSTALLATION_ID` | No | GitHub App installation ID |
+| `GITHUB_TOKEN` | No | Alternative: personal access token (if not using App) |
 | `UPSTASH_REDIS_REST_URL` | No | Upstash Redis URL (falls back to in-memory) |
 | `UPSTASH_REDIS_REST_TOKEN` | No | Upstash Redis token |
 | `RATE_LIMIT_REQUESTS` | No | Max requests per window (default: 20) |
@@ -114,6 +120,38 @@ Edit `src/lib/knowledge/articles.ts` to add or modify articles. Each article has
 
 The search function matches user queries against titles, tags, and content using keyword scoring.
 
+## PR Review
+
+### Option A: GitHub App (recommended)
+
+1. Create a GitHub App at [github.com/settings/apps/new](https://github.com/settings/apps/new)
+2. Set **Repository permissions**: Pull requests (Read), Contents (Read), Metadata (Read)
+3. Disable webhooks (not needed)
+4. Generate a **private key** (.pem file) from the app settings
+5. Install the app on your account/org
+6. Add these env vars:
+   - `GITHUB_APP_ID` — from the app settings page
+   - `GITHUB_APP_PRIVATE_KEY` — PEM contents with newlines replaced by `\n`
+   - `GITHUB_APP_INSTALLATION_ID` — from the installation URL (`github.com/settings/installations/{id}`)
+
+### Option B: Personal Access Token
+
+Create a token at [github.com/settings/tokens](https://github.com/settings/tokens) with `repo` scope and set `GITHUB_TOKEN`.
+
+### Usage
+
+In Slack, just say:
+
+```
+@Happy Support review https://github.com/owner/repo/pull/123
+```
+
+The bot will fetch the PR diff and provide a structured review covering:
+- **Summary** of what the PR does
+- **What's good** — positive patterns and clean code
+- **Issues & suggestions** — grouped by severity (Critical / Important / Suggestion)
+- **Verdict** — Approve, Request Changes, or Needs Discussion
+
 ## Extending
 
 ### Ticket System Integration
@@ -146,6 +184,8 @@ src/
     │   ├── agent.ts                # Claude orchestrator with tool loop
     │   ├── system-prompt.ts        # Agent persona and rules
     │   └── tools.ts                # Tool definitions + handlers
+    ├── github/
+    │   └── client.ts               # GitHub API client for PR review
     ├── knowledge/
     │   ├── articles.ts             # Knowledge base content
     │   └── search.ts               # Keyword search engine
