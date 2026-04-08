@@ -16,7 +16,7 @@ async function slackAPI(method: string, body: Record<string, unknown>) {
 
   const data = await res.json();
   if (!data.ok) {
-    console.error(`Slack API ${method} failed:`, data.error);
+    console.error(`Slack API ${method} failed: ${data.error}`);
   }
   return data;
 }
