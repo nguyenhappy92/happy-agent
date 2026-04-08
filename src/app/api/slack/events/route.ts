@@ -7,26 +7,34 @@ import { checkRateLimit } from "@/lib/storage/rate-limiter";
 
 export const maxDuration = 60;
 
+const GENERIC_REJECT = new Response(null, { status: 401 });
+const OK = new Response(null, { status: 200 });
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   if (!verifySlackSignature(req.headers, rawBody)) {
-    return new Response("Invalid signature", { status: 401 });
+    return GENERIC_REJECT;
   }
 
-  const payload = JSON.parse(rawBody);
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return GENERIC_REJECT;
+  }
 
   if (payload.type === "url_verification") {
     return Response.json({ challenge: payload.challenge });
   }
 
   if (req.headers.get("x-slack-retry-num")) {
-    return new Response("OK", { status: 200 });
+    return OK;
   }
 
-  const event = payload.event;
+  const event = payload.event as SlackEvent | undefined;
   if (!event) {
-    return new Response("OK", { status: 200 });
+    return OK;
   }
 
   const isAppMention = event.type === "app_mention";
@@ -35,12 +43,12 @@ export async function POST(req: NextRequest) {
   const isBotMessage = !!event.bot_id || !!event.subtype;
 
   if ((!isAppMention && !isDirectMessage) || isBotMessage) {
-    return new Response("OK", { status: 200 });
+    return OK;
   }
 
   waitUntil(handleMessageEvent(event));
 
-  return new Response("OK", { status: 200 });
+  return OK;
 }
 
 async function handleMessageEvent(event: SlackEvent) {
@@ -73,7 +81,10 @@ async function handleMessageEvent(event: SlackEvent) {
     await postMessage(channel, reply, threadTs);
     await removeReaction(channel, ts, "thinking_face");
   } catch (error) {
-    console.error("Error handling Slack message:", error);
+    console.error(
+      "Error handling Slack message:",
+      error instanceof Error ? error.message : "unknown error"
+    );
     await postMessage(
       channel,
       "I'm sorry, I ran into an unexpected error. Please try again or contact support.",
