@@ -12,7 +12,7 @@
     "next": "^16.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@anthropic-ai/sdk": "^0.81.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@upstash/redis": "^1.37.0",
     "@upstash/ratelimit": "^2.0.8",
     "@vercel/functions": "^3.4.3"
